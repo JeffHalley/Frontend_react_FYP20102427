@@ -1,40 +1,76 @@
 import { useState } from "react";
 
+const API_URL = "https://gocy869z5b.execute-api.eu-west-1.amazonaws.com/ask";
+
 function App() {
   const [input, setInput] = useState("");
   const [output, setOutput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSend = () => {
-    // For demonstration, we'll just echo the input to output, placeholder for real logic
-    setOutput(input);
-    setInput("");
+  const handleSend = async () => {
+    if (!input.trim()) return;
+
+    setLoading(true);
+    setOutput(""); // Clear previous output
+    
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ prompt: input }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setOutput(data.response);
+    } catch (error) {
+      console.error("Error calling Bedrock:", error);
+      setOutput("Error: Could not reach the AI agent.");
+    } finally {
+      setLoading(false);
+      setInput("");
+    }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100">
+    <div className="flex items-center justify-center min-h-screen bg-gray-900">
       <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-center mb-6 text-gray-800">
-          UI Test Panel
+        <h1 className="text-2xl font-semibold text-center mb-6 text-gray-900">
+          Bedrock AI Agent
         </h1>
 
         <div className="flex gap-2 mb-4">
           <input
             type="text"
             value={input}
+            disabled={loading}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onKeyDown={(e) => e.key === "Enter" && handleSend()}
+            placeholder="Ask the agent something..."
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
           />
           <button
             onClick={handleSend}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            disabled={loading}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-300"
           >
-            Send
+            {loading ? "..." : "Send"}
           </button>
         </div>
 
-        <div className="border border-gray-300 rounded-lg p-4 h-32 overflow-auto bg-gray-50 text-gray-700">
-          {output ? output : <span className="text-gray-400">Output will appear here...</span>}
+        <div className="border border-gray-300 rounded-lg p-4 h-48 overflow-auto bg-gray-50 text-gray-700 whitespace-pre-wrap">
+          {loading ? (
+            <span className="text-gray-400 italic">Agent is thinking...</span>
+          ) : output ? (
+            output
+          ) : (
+            <span className="text-gray-400">Output will appear here...</span>
+          )}
         </div>
       </div>
     </div>
