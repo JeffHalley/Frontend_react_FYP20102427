@@ -1,24 +1,33 @@
 import { useState } from "react";
+import Header from "./layouts/Header";
+import Conversation from "./layouts/Conversation";
+import Footer from "./layouts/Footer";
+import SidePanel from "./layouts/SidePanel";
 
-const API_URL = "https://gocy869z5b.execute-api.eu-west-1.amazonaws.com/ask";
+const API_URL = "https://9kdou5cfm0.execute-api.eu-west-1.amazonaws.com/ask";
 
 function App() {
   const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
+  const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Toggle state
 
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
+    const userMessage = {
+      role: "user",
+      content: input,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
     setLoading(true);
-    setOutput(""); // Clear previous output
-    
+    setInput("");
+
     try {
       const response = await fetch(API_URL, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: input }),
       });
 
@@ -27,54 +36,44 @@ function App() {
       }
 
       const data = await response.json();
-      setOutput(data.response);
-    } catch (error) {
-      console.error("Error calling Bedrock:", error);
-      setOutput("Error: Could not reach the AI agent.");
+
+      const agentMessage = {
+        role: "assistant",
+        content: data.response,
+      };
+
+      setMessages((prev) => [...prev, agentMessage]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error: Could not reach the AI agent." },
+      ]);
     } finally {
       setLoading(false);
-      setInput("");
     }
   };
 
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-center mb-6 text-gray-900">
-          Bedrock AI Agent
-        </h1>
+return (
+    <div className="flex flex-col h-screen bg-gray-900 text-gray-100 overflow-hidden">
+      <Header />
 
-        <div className="flex gap-2 mb-4">
-          <input
-            type="text"
-            value={input}
-            disabled={loading}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            placeholder="Ask the agent something..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-          />
-          <button
-            onClick={handleSend}
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:bg-blue-300"
-          >
-            {loading ? "..." : "Send"}
-          </button>
-        </div>
+      <div className="flex flex-1 overflow-hidden">
+        <SidePanel isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-        <div className="border border-gray-300 rounded-lg p-4 h-48 overflow-auto bg-gray-50 text-gray-700 whitespace-pre-wrap">
-          {loading ? (
-            <span className="text-gray-400 italic">Agent is thinking...</span>
-          ) : output ? (
-            output
-          ) : (
-            <span className="text-gray-400">Output will appear here...</span>
-          )}
-        </div>
+        <main className={`flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300`}>
+          <div className="bg-white shadow-lg rounded-3xl p-6 w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden">
+            <Conversation
+              input={input}
+              setInput={setInput}
+              messages={messages}
+              loading={loading}
+              handleSend={handleSend}
+            />
+            <Footer />
+          </div>
+        </main>
       </div>
     </div>
   );
 }
-
 export default App;
