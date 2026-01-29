@@ -10,14 +10,16 @@ function App() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
-const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Toggle state
+const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Toggle state - open by default per requirement 4.1
 
   const handleSend = async () => {
-    if (!input.trim() || loading) return;
+    // Input validation - prevent empty or whitespace-only messages
+    const trimmedInput = input.trim();
+    if (!trimmedInput || loading) return;
 
     const userMessage = {
       role: "user",
-      content: input,
+      content: trimmedInput,
     };
 
     setMessages((prev) => [...prev, userMessage]);
@@ -28,7 +30,7 @@ const [isSidebarOpen, setIsSidebarOpen] = useState(true); // Toggle state
       const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: input }),
+        body: JSON.stringify({ prompt: trimmedInput }),
       });
 
       if (!response.ok) {
@@ -60,8 +62,8 @@ return (
       <div className="flex flex-1 overflow-hidden">
         <SidePanel isOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
 
-        <main className={`flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300`}>
-          <div className="bg-white shadow-lg rounded-3xl p-6 w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden">
+        <main className="flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300 ease-in-out">
+          <div className="bg-white shadow-lg rounded-3xl p-6 w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
             <Conversation
               input={input}
               setInput={setInput}
