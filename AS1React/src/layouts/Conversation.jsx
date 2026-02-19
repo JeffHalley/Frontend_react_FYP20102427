@@ -1,7 +1,6 @@
 // Conversation.js
 function Conversation({ input, setInput, messages, loading, handleSend }) {
   return (
-    // min-h-0 is critical here to allow the flex child to shrink/scroll
     <div className="flex flex-col flex-1 min-h-0"> 
       
       {/* Message history */}
@@ -19,7 +18,7 @@ function Conversation({ input, setInput, messages, loading, handleSend }) {
                 ? "bg-blue-600 text-white rounded-br-md" 
                 : "bg-white text-gray-800 rounded-bl-md border border-gray-200"
             }`}>
-              {msg.content}
+              {Array.isArray(msg.content) ? msg.content[0].text : msg.content}
             </div>
           </div>
         ))}
@@ -29,7 +28,7 @@ function Conversation({ input, setInput, messages, loading, handleSend }) {
         )}
       </div>
 
-      {/* Input */}
+      {/* Input Section */}
       <div className="flex gap-3 pt-2 border-t border-gray-100">
         <input
           type="text"
@@ -50,7 +49,7 @@ function Conversation({ input, setInput, messages, loading, handleSend }) {
           disabled={loading}
           className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-sm hover:shadow-md active:scale-95"
         >
-          Send
+          {loading ? "..." : "Send"}
         </button>
       </div>
     </div>
