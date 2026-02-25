@@ -68,6 +68,7 @@ function App() {
       }
 
       const data = await response.json();
+      console.log(data);
 
       // 3. Sync state with the full history from the server
       // This includes the prompt we just sent AND the AI response
