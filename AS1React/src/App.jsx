@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "./layouts/Header";
 import Conversation from "./layouts/Conversation";
 import Footer from "./layouts/Footer";
@@ -10,6 +10,7 @@ import '@aws-amplify/ui-react/styles.css';
 import './App.css';
 import { authComponents, authFormFields, authTheme } from './components/AuthLayout';
 import { ThemeProvider } from '@aws-amplify/ui-react';
+import { useTheme } from "./hooks/useTheme";
 
 Amplify.configure({
   Auth: {
@@ -35,6 +36,20 @@ const getUserId = async () => {
   return session.tokens.idToken?.payload?.sub;
 };
 
+// ─── Logging helpers ───────────────────────────────────────────────────────
+const log = (label, data) => {
+  console.groupCollapsed(`[App] ${label}`);
+  if (data !== undefined) console.log(data);
+  console.groupEnd();
+};
+
+const logError = (label, err) => {
+  console.group(`[App] ${label}`);
+  console.error(err);
+  console.groupEnd();
+};
+// ───────────────────────────────────────────────────────────────────────────
+
 function App() {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
@@ -43,70 +58,147 @@ function App() {
   const [sessionId, setSessionId] = useState(null);
   const [conversations, setConversations] = useState([]);
   const [userId, setUserId] = useState(null);
+  const { theme, toggleTheme } = useTheme();
 
-  // Fetch userId from JWT on load and initialise a session
+
+  const sessionIdRef = useRef(null);
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+    log("sessionId state → ref sync", { sessionId });
+  }, [sessionId]);
+
   useEffect(() => {
     const init = async () => {
+      log("init() started");
       const session = await fetchAuthSession();
       const uid = session.tokens.idToken?.payload?.sub;
+
+      if (!uid) {
+        log("init() — no userId yet, aborting");
+        return;
+      }
+
+      log("User authenticated", { userId: uid });
       setUserId(uid);
-      setSessionId(generateSessionId(uid));
+
+      const sid = generateSessionId(uid);
+      setSessionId(sid);
+      sessionIdRef.current = sid;
+      log("Initial sessionId generated", { sessionId: sid });
+
       await loadConversations(uid);
     };
     init();
   }, []);
 
-const loadConversations = async () => {
-  try {
-    const [token, uid] = await Promise.all([getAuthToken(), getUserId()]);
-    const res = await fetch(`${CONVERSATIONS_URL}?userId=${uid}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setConversations(data.conversations || []);
+  const loadConversations = async (uid) => {
+    if (!uid) {
+      log("loadConversations() — uid is empty, skipping");
+      return;
     }
-  } catch (err) {
-    console.error("Failed to load conversations:", err);
-  }
-};
+    log("loadConversations() called", { userId: uid });
+    try {
+      const token = await getAuthToken();
+      const url = `${CONVERSATIONS_URL}?userId=${uid}`;
+      log("GET conversations request", { url });
 
-const saveConversation = async (sid, title, updatedMessages) => {
-  try {
-    const [token, uid] = await Promise.all([getAuthToken(), getUserId()]);
-    await fetch(CONVERSATIONS_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify({
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      log("GET conversations response", { status: res.status, ok: res.ok });
+
+      if (res.ok) {
+        const data = await res.json();
+        log("Conversations loaded", { count: data.conversations?.length, conversations: data.conversations });
+        setConversations(data.conversations || []);
+      } else {
+        log("GET conversations non-OK response", { status: res.status });
+      }
+    } catch (err) {
+      logError("loadConversations() failed", err);
+    }
+  };
+
+  const saveConversation = async (sid, title, updatedMessages) => {
+    log("saveConversation() called", { sessionId: sid, title, messageCount: updatedMessages.length });
+
+    if (!sid) {
+      log("saveConversation() — sessionId is empty, skipping");
+      return;
+    }
+
+    try {
+      const [token, uid] = await Promise.all([getAuthToken(), getUserId()]);
+
+      if (!uid || !sid) {
+        log("saveConversation() — uid or sid missing, skipping", { uid, sid });
+        return;
+      }
+
+      const payload = {
         userId: uid,
         sessionId: sid,
         title,
         messages: updatedMessages,
         lastUpdated: new Date().toISOString()
-      })
-    });
-  } catch (err) {
-    console.error("Failed to save conversation:", err);
-  }
-};
+      };
+      log("POST conversations payload", payload);
+
+      const res = await fetch(CONVERSATIONS_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      log("POST conversations response", { status: res.status, ok: res.ok });
+    } catch (err) {
+      logError("saveConversation() failed", err);
+    }
+  };
 
   const handleNewChat = () => {
+    log("handleNewChat() called", { previousSessionId: sessionIdRef.current });
     setMessages([]);
     setInput("");
-    setSessionId(generateSessionId(userId));
+    const sid = generateSessionId(userId);
+    setSessionId(sid);
+    sessionIdRef.current = sid;
+    log("New sessionId generated", { sessionId: sid });
   };
 
   const handleSelectConversation = (conversation) => {
+    log("handleSelectConversation() called", {
+      selectedSessionId: conversation.sessionId,
+      previousSessionId: sessionIdRef.current,
+      messageCount: conversation.messages?.length
+    });
     setSessionId(conversation.sessionId);
+    sessionIdRef.current = conversation.sessionId;
     setMessages(conversation.messages || []);
   };
 
   const handleSend = async () => {
     const trimmedInput = input.trim();
-    if (!trimmedInput || loading) return;
+
+    log("handleSend() called", {
+      prompt: trimmedInput,
+      sessionId: sessionIdRef.current,
+      sessionIdState: sessionId,
+      sessionIdMatch: sessionIdRef.current === sessionId,
+      currentMessageCount: messages.length,
+      loading
+    });
+
+    if (!trimmedInput || loading) {
+      log("handleSend() — blocked", { emptyInput: !trimmedInput, loading });
+      return;
+    }
+
+    const currentSessionId = sessionIdRef.current;
 
     const newUserMessage = {
       role: "user",
@@ -116,6 +208,12 @@ const saveConversation = async (sid, title, updatedMessages) => {
     const historyToSend = [...messages];
     const isFirstMessage = historyToSend.length === 0;
 
+    log("Message state before send", {
+      historyLength: historyToSend.length,
+      isFirstMessage,
+      newMessage: newUserMessage
+    });
+
     setMessages((prev) => [...prev, newUserMessage]);
     setLoading(true);
     setInput("");
@@ -123,50 +221,80 @@ const saveConversation = async (sid, title, updatedMessages) => {
     try {
       const token = await getAuthToken();
 
+      const requestPayload = {
+        prompt: trimmedInput,
+        session_id: currentSessionId,
+      };
+
+      log("POST /ask request", {
+        url: API_URL,
+        payload: requestPayload,
+        sessionIdSent: currentSessionId
+      });
+
+      const startTime = Date.now();
       const response = await fetch(API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          prompt: trimmedInput,
-          session_id: sessionId,
-          messages: historyToSend
-        }),
+        body: JSON.stringify(requestPayload),
+      });
+
+      const duration = Date.now() - startTime;
+      log("POST /ask response received", {
+        status: response.status,
+        ok: response.ok,
+        durationMs: duration
       });
 
       if (!response.ok) throw new Error(`Server error: ${response.status}`);
 
       const data = await response.json();
+      log("POST /ask response body", {
+        response: data.response,
+        session_id: data.session_id,
+        sessionIdMatch: data.session_id === currentSessionId
+      });
 
       const agentMessage = {
         role: "assistant",
         content: [{ text: data.response }],
       };
 
-      const updatedMessages = data.history || [...historyToSend, newUserMessage, agentMessage];
+      const updatedMessages = [...historyToSend, newUserMessage, agentMessage];
+      log("Updated message list", {
+        totalMessages: updatedMessages.length,
+        messages: updatedMessages
+      });
+
       setMessages(updatedMessages);
 
-      // Auto-title from first user message (truncated to 50 chars)
       const title = isFirstMessage
         ? trimmedInput.slice(0, 50)
-        : conversations.find(c => c.sessionId === sessionId)?.title || trimmedInput.slice(0, 50);
+        : conversations.find(c => c.sessionId === currentSessionId)?.title || trimmedInput.slice(0, 50);
 
-      await saveConversation(sessionId, title, updatedMessages);
+      log("Conversation title resolved", { title, isFirstMessage });
 
-      // Update local sidebar list
+      await saveConversation(currentSessionId, title, updatedMessages);
+
       setConversations((prev) => {
-        const exists = prev.find(c => c.sessionId === sessionId);
+        const exists = prev.find(c => c.sessionId === currentSessionId);
+        log("Updating sidebar conversations", {
+          exists: !!exists,
+          currentSessionId,
+          totalConversations: prev.length
+        });
         if (exists) {
           return prev.map(c =>
-            c.sessionId === sessionId
+            c.sessionId === currentSessionId
               ? { ...c, messages: updatedMessages, lastUpdated: new Date().toISOString() }
               : c
           );
         }
         return [{
-          sessionId,
+          sessionId: currentSessionId,
           title,
           messages: updatedMessages,
           lastUpdated: new Date().toISOString()
@@ -174,13 +302,14 @@ const saveConversation = async (sid, title, updatedMessages) => {
       });
 
     } catch (err) {
-      console.error("Chat Error:", err);
+      logError("handleSend() fetch failed", err);
       setMessages((prev) => [
         ...prev,
         { role: "assistant", content: [{ text: "Error: Could not reach the AI agent." }] }
       ]);
     } finally {
       setLoading(false);
+      log("handleSend() complete", { sessionId: currentSessionId });
     }
   };
 
@@ -188,8 +317,8 @@ const saveConversation = async (sid, title, updatedMessages) => {
     <ThemeProvider theme={authTheme}>
       <Authenticator components={authComponents} formFields={authFormFields}>
         {({ signOut, user }) => (
-          <div className="flex flex-col h-screen bg-gray-900 text-gray-100 overflow-hidden">
-            <Header user={user} onLogout={signOut} />
+          <div className="flex flex-col h-screen bg-surface-950 text-brand-90/80 overflow-hidden">
+            <Header user={user} onLogout={signOut} theme={theme} toggleTheme={toggleTheme} />
             <div className="flex flex-1 overflow-hidden">
               <SidePanel
                 isOpen={isSidebarOpen}
@@ -200,7 +329,7 @@ const saveConversation = async (sid, title, updatedMessages) => {
                 activeSessionId={sessionId}
               />
               <main className="flex-1 flex flex-col items-center justify-center p-4 transition-all duration-300 ease-in-out">
-                <div className="bg-white shadow-lg rounded-3xl p-6 w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden border border-gray-200">
+                <div className="bg-surface-900 shadow-2xl rounded-3xl p-6 w-full max-w-4xl h-full max-h-[85vh] flex flex-col overflow-hidden border border-surface-border">
                   <Conversation
                     input={input}
                     setInput={setInput}
