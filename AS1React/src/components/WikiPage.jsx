@@ -233,13 +233,33 @@ terraform apply
 
 export default function WikiPage({ onBack }) {
   const [activeId, setActiveId] = useState(PAGES[0].id);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true); // New state for visibility
   const page = PAGES.find((p) => p.id === activeId);
+
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   return (
     <div style={s.root}>
-      <aside style={s.sidebar}>
+      {/* Toggle Button for when sidebar is closed */}
+      {!isSidebarOpen && (
+        <button onClick={toggleSidebar} style={s.floatingToggle}>
+          ☰ Menu
+        </button>
+      )}
+
+      <aside
+        style={{
+          ...s.sidebar,
+          marginLeft: isSidebarOpen ? 0 : -240, // Slide out effect
+          transition: "margin-left 0.3s ease"
+        }}
+      >
         <div style={s.sidebarTop}>
-          <button onClick={onBack} style={s.backBtn}>← Back to Login screen</button>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
+            <button onClick={onBack} style={s.backBtn}>← Back</button>
+            <button onClick={toggleSidebar} style={s.closeBtn}>✕</button>
+          </div>
+
           <div style={s.logoRow}>
             <div>
               <div style={s.logoTitle}>PROJECT WEBSITE</div>
@@ -267,7 +287,10 @@ export default function WikiPage({ onBack }) {
         <div style={s.sidebarFooter}>PROJECT DOCUMENTATION</div>
       </aside>
 
-      <main style={s.main}>
+      <main style={{
+        ...s.main,
+        transition: "all 0.3s ease"
+      }}>
         <Markdown content={page.content} />
         <div style={{ height: 60 }} />
       </main>
@@ -419,8 +442,10 @@ function MdTable({ lines }) {
 
 // Styles 
 const s = {
-  root: { display: "flex", height: "100vh", background: "var(--color-surface-950)", color: "var(--color-text-primary)", fontFamily: "'Montserrat', sans-serif", overflow: "hidden" },
-  sidebar: { width: 240, minWidth: 240, background: "var(--color-surface-900)", borderRight: "1px solid var(--color-surface-border)", display: "flex", flexDirection: "column", overflow: "hidden" },
+  root: { display: "flex", height: "100vh", background: "var(--color-surface-950)", color: "var(--color-text-primary)", fontFamily: "'Montserrat', sans-serif", overflow: "hidden", position: 'relative' },
+  sidebar: { width: 240, minWidth: 240, background: "var(--color-surface-900)", borderRight: "1px solid var(--color-surface-border)", display: "flex", flexDirection: "column", overflow: "hidden", zIndex: 10 },
+  floatingToggle: { position: 'absolute', top: 20, left: 20, zIndex: 5, background: "var(--color-surface-800)", color: "white", border: "1px solid var(--color-surface-border)", padding: "8px 12px", borderRadius: "4px", cursor: "pointer", fontSize: "12px" },
+  closeBtn: { background: "none", border: "none", color: "var(--color-text-muted)", cursor: "pointer", fontSize: "16px", padding: "4px" },
   sidebarTop: { padding: "20px 20px 16px", borderBottom: "1px solid var(--color-surface-border)" },
   backBtn: { background: "var(--color-brand-80)", border: "none", color: "#ffffff", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontSize: "11px", fontWeight: "600", letterSpacing: "0.05em", marginBottom: "14px", fontFamily: "inherit", transition: "all 0.2s ease", textTransform: "uppercase" },
   logoRow: { display: "flex", alignItems: "center", gap: 10 },
@@ -430,7 +455,7 @@ const s = {
   navBtn: { width: "100%", background: "none", border: "none", borderLeft: "2px solid transparent", padding: "10px 18px", textAlign: "left", cursor: "pointer", fontSize: 12, color: "var(--color-text-secondary)", letterSpacing: "0.04em", transition: "all 0.12s", fontFamily: "inherit" },
   navBtnActive: { background: "var(--color-surface-800)", borderLeft: "2px solid var(--color-brand-80)", color: "var(--color-text-primary)" },
   sidebarFooter: { padding: "12px 18px", borderTop: "1px solid var(--color-surface-border)", fontSize: 9, color: "var(--color-text-muted)", letterSpacing: "0.1em" },
-  main: { flex: 1, overflowY: "auto", padding: "44px 52px", background: "var(--color-surface-950)" }, 
+  main: { flex: 1, overflowY: "auto", padding: "44px 52px", background: "var(--color-surface-950)" },
   pageBody: { width: "100%" },
   h1: { fontSize: 24, fontWeight: 700, color: "var(--color-text-primary)", margin: "0 0 24px", borderBottom: "1px solid var(--color-surface-border)", paddingBottom: 12 },
   h2: { fontSize: 13, fontWeight: 700, color: "var(--color-brand-90)", margin: "32px 0 12px", textTransform: "uppercase", letterSpacing: "0.08em" },
@@ -441,7 +466,7 @@ const s = {
   ol: { margin: "0 0 16px", padding: "0 0 0 20px", display: "flex", flexDirection: "column", gap: 7 },
   li: { display: "flex", gap: 10, fontSize: 12, color: "var(--color-text-primary)", opacity: 0.8, lineHeight: 1.6 },
   bullet: { color: "var(--color-brand-80)", flexShrink: 0, marginTop: 3 },
-  pre: { background: "var(--color-surface-900)", border: "1px solid var(--color-surface-border)", borderRadius: 6, padding: "14px 18px", overflowX: "auto", margin: "0 0 18px", width: "fit-content", minWidth: "min(100%, 600px)", maxWidth: "100%" }, 
+  pre: { background: "var(--color-surface-900)", border: "1px solid var(--color-surface-border)", borderRadius: 6, padding: "14px 18px", overflowX: "auto", margin: "0 0 18px", width: "fit-content", minWidth: "min(100%, 600px)", maxWidth: "100%" },
   codeLang: { display: "block", fontSize: 10, color: "var(--color-text-muted)", letterSpacing: "0.08em", marginBottom: 8, textTransform: "uppercase" },
   code: { fontSize: 12, color: "var(--color-brand-100)", fontFamily: "monospace", lineHeight: 1.7 },
   inlineCode: { background: "var(--color-surface-700)", border: "1px solid var(--color-surface-border)", color: "var(--color-brand-90)", padding: "1px 6px", borderRadius: 3, fontSize: "0.9em" },

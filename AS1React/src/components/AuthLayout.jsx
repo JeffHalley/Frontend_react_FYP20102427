@@ -9,6 +9,31 @@ export function createAuthComponents(onWikiClick) {
             Bedrock agentic <span className="text-brand-90">AI</span>
           </h1>
           <p className="text-text-secondary text-sm mt-2 font-medium">By Jeff Halley</p>
+          
+          {/* Tidyed up button with better spacing */}
+          <div className="mt-6 px-4"> 
+            <button
+              onClick={onWikiClick}
+              className="
+                group w-full py-2.5 px-4 rounded-lg 
+                bg-brand-80 text-white text-xs font-bold uppercase tracking-wider
+                flex items-center justify-center gap-2
+                cursor-pointer transition-all duration-300 ease-out
+                
+                hover:bg-brand-70 
+                hover:-translate-y-0.5 
+                hover:shadow-lg hover:shadow-brand-80/20
+                
+                active:scale-[0.98] 
+                active:translate-y-0
+              "
+            >
+              <span>View Project Website</span>
+              <span className="text-lg leading-none transition-transform duration-300 group-hover:translate-x-1">
+                →
+              </span>
+            </button>
+          </div>
         </div>
       );
     },
@@ -16,33 +41,11 @@ export function createAuthComponents(onWikiClick) {
       return (
         <div className="text-center p-4 bg-surface-800 rounded-b-xl flex flex-col items-center gap-3">
           <p className="text-xs text-text-muted italic">Auth securely powered by AWS Cognito</p>
-          <button
-            onClick={onWikiClick}
-            className="
-                    group w-full py-2.5 px-4 rounded-lg 
-                  bg-brand-10 text-white text-sm font-semibold 
-                    flex items-center justify-center gap-2
-                    cursor-pointer transition-all duration-300 ease-out
-                    
-                    hover:bg-brand-70 
-                    hover:-translate-y-0.5 
-                    hover:shadow-xl hover:shadow-brand-80/30
-                    
-                    active:scale-[0.97] 
-                    active:translate-y-0
-  "
-          >
-            <span>View Project Website</span>
-            <span className="text-lg transition-transform duration-300 group-hover:translate-x-1">
-              →
-            </span>
-          </button>
         </div>
       );
     },
   };
 }
-
 export const authComponents = {
   Header() {
     return (
@@ -51,6 +54,7 @@ export const authComponents = {
           Bedrock agentic <span className="text-brand-90">AI</span>
         </h1>
         <p className="text-text-secondary text-sm mt-2 font-medium">By Jeff Halley</p>
+
       </div>
     );
   },
