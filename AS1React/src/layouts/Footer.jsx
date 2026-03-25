@@ -1,7 +1,7 @@
 function Footer() {
   return (
-    <footer className="text-center text-gray-500 text-sm mt-4">
-      &copy; 2026 Bedrock AI. All rights reserved.
+    <footer className="text-center text-gray-500 text-xs mt-4">
+      Last updated 2026, Contact <a href="mailto:Jeffhalley302@gmail.com" className="text-brand-80 hover:underline">Jeffhalley302@gmail.com</a> for any issues or inquiries.
     </footer>
   );
 }

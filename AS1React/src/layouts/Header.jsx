@@ -1,24 +1,27 @@
 function Header({ user, onLogout, theme, toggleTheme }) {
-  const userId = user?.userId || "Guest";
+  const userId = user?.username || user?.userId || "Guest";
 
   return (
-    <header className="w-full bg-surface-950 border-b border-surface-border py-4 px-6 shadow-lg z-10 flex justify-between items-center">
-      <h1 className="text-xl font-bold tracking-tight">
-        <span className="text-brand-80/70">Bedrock </span>
-        <span className="text-brand-100">AI</span>
-      </h1>
+    <header className="w-full bg-surface-950 border-b border-surface-border py-3 px-6 z-10 flex justify-between items-center shrink-0">
+      <div className="flex items-center gap-3">
+        <span className="text-[10px] font-bold tracking-[0.2em] text-brand-90 uppercase whitespace-nowrap">
+          Jeff Halley — 20102427
+        </span>
+        <div className="h-px w-full bg-surface-border opacity-40"></div>
+      </div>
 
-      <div className="flex items-center gap-4">
+
+      <div className="flex items-center gap-3">
         <div className="text-right">
-          <p className="text-xs text-brand-80/30 uppercase font-semibold tracking-widest">User ID</p>
-          <p className="text-sm text-brand-80/70 font-mono" title={userId}>
+          <p className="text-[10px] text-text-muted uppercase font-semibold tracking-widest">User ID</p>
+          <p className="text-xs text-text-secondary font-mono truncate max-w-[200px]" title={userId}>
             {userId}
           </p>
         </div>
 
         <button
           onClick={toggleTheme}
-          className="p-2 rounded-lg border border-surface-border hover:bg-surface-800 text-brand-90/60 hover:text-brand-100 transition-all duration-200"
+          className="p-2 cursor-pointer rounded-lg border border-surface-border hover:bg-surface-800 text-text-muted hover:text-text-primary transition-all duration-200"
           aria-label="Toggle theme"
         >
           {theme === "dark" ? (
@@ -36,7 +39,7 @@ function Header({ user, onLogout, theme, toggleTheme }) {
 
         <button
           onClick={onLogout}
-          className="px-3 py-1.5 bg-brand-10/10 hover:bg-brand-10/20 border border-brand-10/30 hover:border-brand-10/50 text-brand-10 text-xs rounded-lg transition-all duration-200"
+          className="px-3 py-1.5 cursor-pointer bg-brand-10/10 hover:bg-brand-10/20 border border-brand-10/30 hover:border-brand-10/50 text-brand-10 text-xs rounded-lg transition-all duration-200"
         >
           Logout
         </button>
