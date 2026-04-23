@@ -4,12 +4,33 @@ function Header({ user, onLogout, theme, toggleTheme }) {
   return (
     <header className="w-full bg-surface-950 border-b border-surface-border py-3 px-6 z-10 flex justify-between items-center shrink-0">
       <div className="flex items-center gap-3">
-        <span className="text-[10px] font-bold tracking-[0.2em] text-brand-90 uppercase whitespace-nowrap">
-          Jeff Halley — 20102427
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold tracking-[0.2em] text-brand-90 uppercase whitespace-nowrap">
+            QueryOps AI
+          </span>
+          
+          <div className="relative group flex items-center cursor-help">
+            <svg 
+              className="w-3.5 h-3.5 text-brand-90 opacity-70 group-hover:opacity-100 transition-opacity" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            
+            <div className="absolute top-full left-0 mt-2 w-48 p-2.5 bg-surface-900 border border-surface-border text-text-primary text-xs font-normal tracking-normal normal-case rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+              How to use this app:
+              <ul className="list-disc list-inside mt-1">
+                <li>Click on the info icon for more details</li>
+                <li>Hover over fields for additional guidance</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div className="h-px w-full bg-surface-border opacity-40"></div>
       </div>
-
 
       <div className="flex items-center gap-3">
         <div className="text-right">

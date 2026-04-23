@@ -6,7 +6,7 @@ export function createAuthComponents(onWikiClick) {
       return (
         <div className="text-center p-8 bg-surface-900 rounded-t-xl border-b border-surface-border">
           <h1 className="text-3xl font-bold text-text-primary tracking-tight">
-            Bedrock agentic <span className="text-brand-90">AI</span>
+            QueryOps <span className="text-brand-90">AI</span>
           </h1>
           <p className="text-text-secondary text-sm mt-2 font-medium">By Jeff Halley</p>
           
