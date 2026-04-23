@@ -8,23 +8,84 @@ function Header({ user, onLogout, theme, toggleTheme }) {
           <span className="text-[10px] font-bold tracking-[0.2em] text-brand-90 uppercase whitespace-nowrap">
             QueryOps AI
           </span>
-          
+
           <div className="relative group flex items-center cursor-help">
-            <svg 
-              className="w-3.5 h-3.5 text-brand-90 opacity-70 group-hover:opacity-100 transition-opacity" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className="w-3.5 h-3.5 text-brand-90 opacity-70 group-hover:opacity-100 transition-opacity"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            
-            <div className="absolute top-full left-0 mt-2 w-48 p-2.5 bg-surface-900 border border-surface-border text-text-primary text-xs font-normal tracking-normal normal-case rounded-md shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
-              How to use this app:
-              <ul className="list-disc list-inside mt-1">
-                <li>Click on the info icon for more details</li>
-                <li>Hover over fields for additional guidance</li>
-              </ul>
+
+            <div className="absolute top-full left-0 mt-2 w-[600px] p-4 bg-surface-900 border border-surface-border text-text-primary text-sm font-normal tracking-normal normal-case rounded-md shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none flex flex-col gap-3">
+
+              <div>
+                <strong className="text-base block mb-1 text-white">About this Application</strong>
+                <p className="text-xs leading-relaxed">
+                  This app allows you to retrieve, filter, and understand monitoring data using plain English. You don't need specialist knowledge of complex database query languages to investigate alerts. The system translates your questions into structured queries and returns the results as easy-to-read explanations designed to accelerate incident troubleshooting.
+                </p>
+              </div>
+
+              <hr className="border-surface-border opacity-50" />
+
+              <div>
+                <strong className="text-sm block mb-2 text-white">Example Queries</strong>
+                <p className="text-xs mb-3 text-gray-300">Ask about host metrics, app performance, team assignments, or health statuses:</p>
+
+                <div className="grid grid-cols-2 gap-x-6 gap-y-3 text-xs">
+                  {/* Column 1 */}
+                  <ul className="list-none space-y-3">
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Check Infrastructure</span>
+                      "What is the CPU load for InfraSrv1Host over the last hour?"
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Monitor Applications</span>
+                      "Show the 5 most recent response times for WebSrvA."
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Check User Experience</span>
+                      "What is the current user count and apdex for InternalC?"
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Investigate Health</span>
+                      "Show me all unhealthy metrics in the last 30 minutes."
+                    </li>
+                  </ul>
+
+                  <ul className="list-none space-y-3">
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Filter by Team</span>
+                      "Are there any unhealthy HTTP pings for the AetherisDevelopers group?"
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Network & Disk</span>
+                      "Check the network latency and disk space used on InfraSrv10Host."
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Map Dependencies</span>
+                      "What app name is InfraSrv4Host tied to?"
+                    </li>
+                    <li>
+                      <span className="text-gray-400 block mb-0.5 font-semibold">Follow-up Questions</span>
+                      "What about the memory usage on that same server?"
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <hr className="border-surface-border opacity-50" />
+
+              <div>
+                <strong className="text-sm block mb-1 text-white">Features</strong>
+                <ul className="list-disc list-outside ml-4 text-xs space-y-1.5 text-gray-300">
+                  <li><strong>Alerting:</strong> If the assistant finds unhealthy metrics, it can send an automated email alert upon request.</li>
+                  <li><strong>Conversational Context:</strong> The assistant remembers your session for 60 minutes. If you just asked about <em>"WinAppB"</em>, you can simply ask <em>"What's the error rate?"</em> in your next message.</li>
+                </ul>
+              </div>
+
             </div>
           </div>
         </div>
