@@ -12,6 +12,7 @@ import { createAuthComponents, authFormFields, authTheme } from './components/Au
 import { ThemeProvider } from '@aws-amplify/ui-react';
 import { useTheme } from "./hooks/useTheme";
 import WikiPage from "./components/WikiPage";
+import DataExplorer from "./components/DataExplorer";
 
 Amplify.configure({
   Auth: {
@@ -37,12 +38,6 @@ const getUserId = async () => {
   return session.tokens.idToken?.payload?.sub;
 };
 
-// const log = (label, data) => {
-//   console.groupCollapsed(`[App] ${label}`);
-//   if (data !== undefined) console.log(data);
-//   console.groupEnd();
-// };
-
 const logError = (label, err) => {
   console.group(`[App] ${label}`);
   console.error(err);
@@ -58,6 +53,7 @@ function App() {
   const [conversations, setConversations] = useState([]);
   const [userId, setUserId] = useState(null);
   const [showWiki, setShowWiki] = useState(false);
+  const [isExplorerOpen, setIsExplorerOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
   const authComponents = createAuthComponents(() => setShowWiki(true));
@@ -135,8 +131,17 @@ function App() {
     setMessages(conversation.messages || []);
   };
 
-  const handleSend = async () => {
-    const trimmedInput = input.trim();
+  // Called by DataExplorer - sets the input and immediately sends
+  const handleExplorerQuery = (prompt) => {
+    setInput(prompt);
+    // Use a short timeout so the input state flushes before handleSend reads it
+    setTimeout(() => {
+      handleSendWithPrompt(prompt);
+    }, 0);
+  };
+
+  const handleSendWithPrompt = async (prompt) => {
+    const trimmedInput = prompt.trim();
     if (!trimmedInput || loading) return;
 
     const currentSessionId = sessionIdRef.current;
@@ -195,6 +200,10 @@ function App() {
     }
   };
 
+  const handleSend = async () => {
+    await handleSendWithPrompt(input);
+  };
+
   if (showWiki) {
     return <WikiPage onBack={() => setShowWiki(false)} />;
   }
@@ -204,7 +213,13 @@ function App() {
       <Authenticator components={authComponents} formFields={authFormFields}>
         {({ signOut, user }) => (
           <div className="flex flex-col h-screen bg-surface-950 text-text-primary overflow-hidden">
-            <Header user={user} onLogout={signOut} theme={theme} toggleTheme={toggleTheme} />
+            <Header
+              user={user}
+              onLogout={signOut}
+              theme={theme}
+              toggleTheme={toggleTheme}
+              onOpenExplorer={() => setIsExplorerOpen(true)}
+            />
             <div className="flex flex-1 overflow-hidden">
               <SidePanel
                 isOpen={isSidebarOpen}
@@ -225,6 +240,12 @@ function App() {
                 <Footer />
               </main>
             </div>
+
+            <DataExplorer
+              isOpen={isExplorerOpen}
+              onClose={() => setIsExplorerOpen(false)}
+              onSendQuery={handleExplorerQuery}
+            />
           </div>
         )}
       </Authenticator>
