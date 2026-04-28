@@ -7,36 +7,45 @@ const PAGES = [
     content: `
 # Natural Language to SQL Query System
 
-In modern enterprise environments operating at scale, the monitoring of applications and infrastructure is often delegated to a specialized monitoring team rather than handled by individual development teams. As a result, the collected data frequently becomes siloed within that team. When incidents occur, application developers often lack direct access to monitoring logs and metrics. This increases the average time required to remediate an incident, which directly impacts the business by reducing operational stability and eroding customer trust. This project is architected from the ground up specifically to address this problem.
+In modern enterprise environments operating at scale, the monitoring of applications and infrastructure is often delegated to a specialised monitoring team rather than handled by individual development teams. As a result, the collected data frequently becomes siloed within that team. When incidents occur, application developers often lack direct access to monitoring logs and metrics, increasing the average time required to remediate an incident and directly impacting operational stability and customer trust. This project is architected from the ground up to address this problem.
 
-This project delivers an end-to-end Agentic AI solution that enables natural language querying of monitoring data, By removing technical barriers to data access for developers and engineers, the system enables teams to use monitoring data as contextual input for real-time incident triage without requiring expertise in the underlying monitoring tools.
+This project delivers an end-to-end Agentic AI solution that enables natural language querying of monitoring data. By removing technical barriers to data access for developers and engineers, the system enables teams to use monitoring data as contextual input for real-time incident triage without requiring expertise in the underlying monitoring tools or query languages.
 
 ## What does it do?
 
-Instead of requiring users to write SQL or understand the database schema, the system accepts natural language questions and automatically orchestrates a reasoning chain, translates intent into valid PostgreSQL, executes the query securely, and returns a conversational summary of the monitoring data.
+Instead of requiring users to write SQL or understand the database schema, the system accepts natural language questions and automatically orchestrates a reasoning chain: it translates intent into valid PostgreSQL, executes the query securely, and returns a conversational plain-language summary of the monitoring data. If the results contain unhealthy metrics, the agent offers to dispatch an email alert via Amazon SES - but only after explicit user confirmation, keeping the user in full control of notification behaviour.
 
-Conversation history is persisted in DynamoDB.
+Conversation history is persisted in DynamoDB for post-incident review and audit.
 
 ## Key Features
 
-- Natural language to SQL translation via Amazon Bedrock Agent
-- Secure query execution via Action Group and database connector Lambda
-- Conversational response summaries returned to the user
-- Full conversation history stored in DynamoDB
+- Natural language to SQL translation via Amazon Bedrock Agent (Claude Sonnet 4.5)
+- 7-step chain-of-thought reasoning pipeline enforced via structured system prompt
+- Two action groups: \`postgress_query\` for data retrieval and \`send_alert\` for email alerting
+- Secure, read-only query execution against a long-format PostgreSQL metrics table
+- Conditional email alerting via Amazon SES, triggered only on user confirmation
+- Conversational plain-language response summaries returned to the user
+- Full conversation history persisted in DynamoDB, accessible across devices
+- React SPA frontend with Cognito JWT authentication and dark/light theme support
+- Continuous metrics simulation via a cron-driven Python script (156 rows every 5 minutes)
+- All infrastructure defined and deployed as code via Terraform
 
 ## Tech Stack
 
-| Technology |  Purpose |
-|------------| ---------|
-| React | Polished Frontend UI |
-| API Gateway | Exposes REST endpoints secured with Cognito JWT auth |
-| AWS Lambda |  Serverless logic and DB connectivity |
-| Amazon Bedrock | Agent for SQL generation |
-| DynamoDB | Conversation history storage |
-| AWS EC2 | PostgreSQL hosting |
-| PostgreSQL | Metrics data storage |
-| Terraform |  Infrastructure as Code |
-| Cognito | Identity management and JWT auth |
+| Technology | Purpose |
+|------------|---------|
+| React 19 + Vite 7 + Tailwind CSS v4 | Single-page application frontend |
+| AWS Amplify | Client-side Cognito authentication integration |
+| Amazon API Gateway (HTTP API v2) | Exposes REST endpoints secured with Cognito JWT auth |
+| AWS Lambda (Python 3.12) | Serverless orchestration and database connectivity |
+| Amazon Bedrock Agent | Agentic reasoning and SQL generation (Claude Sonnet 4.5) |
+| Amazon SES | Conditional email alerting for unhealthy metrics |
+| DynamoDB | Conversation history storage and retrieval |
+| Amazon Cognito | Identity management and JWT auth |
+| AWS EC2 (t4g.small Spot) | PostgreSQL 16 hosting and metrics simulation |
+| PostgreSQL 16 | Long-format time-series metrics data store |
+| S3 + CloudFront | Frontend hosting and distribution |
+| Terraform | Infrastructure as Code (AWS provider ~> 6.0) |
     `,
   },
   {
@@ -45,40 +54,48 @@ Conversation history is persisted in DynamoDB.
     content: `
 # Architecture
 
-The system follows a serverless pattern with clear separation of concerns, deployed in \`eu-west-1\`. All traffic between Lambda and Bedrock, and DynamoDB traverses VPC Endpoints to ensure network isolation.
+The system follows a serverless pattern with clear separation of concerns, deployed in \`eu-west-1\`. All traffic between Lambda, Bedrock, and DynamoDB traverses VPC Interface Endpoints to ensure network isolation. The React frontend is hosted on S3 and distributed via CloudFront.
 
 ## Core Components
 
 | Component | Type | Code Reference | Responsibility |
 |-----------|------|----------------|----------------|
-| API Gateway | AWS HTTP API | \`bedrock-gateway\` | Exposes \`/ask\` and \`/conversations\` endpoints; handles Cognito JWT auth |
-| API Handler Lambda | AWS Lambda | \`bedrock-sql-api-handler\` | Orchestrates requests to Bedrock Agent; persists history in DynamoDB |
-| DB Connection Lambda | AWS Lambda | \`bedrock-sql-db-conn\` | Executes SQL queries via psycopg2 and formats results for the Agent |
-| Bedrock Agent | AI Agent | \`sql-data-agent\` | Performs reasoning, SQL generation via Claude 4.5, and tool orchestration |
-| PostgreSQL Database | EC2 Instance | \`postgres-spot\` | Stores \`public.metrics\` in a long-format key-value design |
+| API Gateway | AWS HTTP API v2 | \`bedrock-gateway\` | Exposes \`/ask\` and \`/conversations\` endpoints; enforces Cognito JWT auth |
+| API Handler Lambda | AWS Lambda | \`bedrock-sql-api-handler\` | Orchestrates requests to the Bedrock Agent; persists history in DynamoDB |
+| DB Connection Lambda | AWS Lambda | \`bedrock-sql-db-conn\` | Executes SQL via psycopg2; formats results for the Agent action group |
+| Alert Lambda | AWS Lambda | \`bedrock-sql-send-alert\` | Constructs and dispatches email alerts via Amazon SES |
+| Bedrock Agent | AI Agent | \`sql-data-agent\` | Performs reasoning, SQL generation via Claude Sonnet 4.5, and tool orchestration |
+| PostgreSQL Database | EC2 Instance | \`postgres-spot\` | Stores \`public.metrics\` in a long-format Entity-Attribute-Value design |
 | DynamoDB Table | AWS DynamoDB | \`conversations\` | Stores user chat sessions, messages, and metadata |
+| Metrics Simulation | EC2 cron job | \`metrics_collector.py\` | Writes 156 metric rows every 5 minutes to simulate real monitoring data |
+| Metrics Trimmer | EC2 cron job | \`metrics_trimmer.py\` | Enforces a 10 GB table ceiling by pruning oldest rows every 15 minutes |
 
-## Agentic Reasoning — Chain of Thought
+## Agentic Reasoning - Chain of Thought
 
-The agent does not just generate text. It analyses user intent, maps it to a metric dictionary, constructs SQL, and calls the \`postgress_query\` tool via a defined reasoning pipeline.
+The agent follows a strict 7-step reasoning pipeline before executing any action. This is enforced via the \`<chain_of_thought>\` XML block in the system prompt, which constrains the model's behaviour and prevents it from acting outside its defined scope.
 
-\`\`\`
+\`\`\`xml
 <chain_of_thought>
-  0. ALWAYS use the postgress_query tool for data.
-  1. Analyze filters (host_name, app_name, time).
-  2. Map request to metric name using <metric_dictionary>.
-  3. Construct SQL following <query_rules>.
+  0. ALWAYS use the postgress_query tool for data. Never write tool syntax as text.
+  1. Analyze the user's intent and identify filters (host_name, app_name, time).
+  2. Map the request to the correct metric name using the <metric_dictionary>.
+  3. Construct the SQL query following <query_rules>.
   4. Call the 'postgress_query' tool.
+  5. Provide a concise, plain-language summary of the returned data.
+  6. If any rows in the result have status = 'unhealthy', follow the <alert_rules>.
 </chain_of_thought>
 \`\`\`
 
+Step 6 and the associated \`<alert_rules>\` block integrate the email alerting workflow directly into the agent's reasoning chain. The agent is instructed to offer an alert only after summarising findings, and to never call \`send_metric_alert\` without explicit user confirmation.
+
 ## Long-Format Metric Strategy
 
-The database stores metrics as **rows**, not columns. Strict prompt instructions prevent the AI from generating incorrect column-style queries.
+The database stores metrics as rows, not columns. Every \`SELECT\` statement generated by the agent must include the mandatory column set: \`time, host_name, app_name, assignment_group, metric_name, value, status\`. This ensures the agent always has the full context needed to compose an alert without issuing additional queries. Strict prompt rules prevent column-style queries.
 
-\`\`\`
+\`\`\`sql
 -- CORRECT
-SELECT value FROM public.metrics WHERE metric_name = 'cpu_load';
+SELECT time, host_name, app_name, assignment_group, metric_name, value, status
+FROM public.metrics WHERE metric_name = 'cpu_load';
 
 -- INCORRECT
 SELECT cpu_load FROM public.metrics WHERE host_name ILIKE 'x';
@@ -86,95 +103,183 @@ SELECT cpu_load FROM public.metrics WHERE host_name ILIKE 'x';
 
 ## API Gateway and Cognito
 
-The API Gateway provides the entry point for the system, secured by Amazon Cognito.
+The API Gateway is the single entry point for all client traffic, protected by a Cognito User Pool JWT authoriser. Requests with missing or invalid tokens are rejected before reaching application code.
 
 ### Resource Configuration
 
-- **API Type:** HTTP API (aws_apigatewayv2_api) named bedrock-gateway  
-- **Authorization:** Cognito User Pool Authorizer  
-- **CORS:** Configured to allow * origins and POST/GET methods  
+- **API Type:** HTTP API v2 (\`aws_apigatewayv2_api\`) named \`bedrock-gateway\`
+- **Authorization:** Cognito User Pool Authoriser (Bearer token in \`Authorization\` header)
+- **CORS:** Configured to allow \`*\` origins and \`POST\`/\`GET\` methods
 
 ### Routes
 
-- **POST /ask:** Triggers the handle_ask logic in the API Handler Lambda  
-- **GET /conversations:** Retrieves user chat history from DynamoDB  
-- **POST /conversations:** Persists or updates a conversation session  
+| Route | Handler | Purpose |
+|-------|---------|---------|
+| \`POST /ask\` | \`api_handler\` Lambda | Submits a natural language query to the Bedrock Agent |
+| \`GET /conversations\` | \`api_handler\` Lambda | Retrieves conversation history for a user from DynamoDB |
+| \`POST /conversations\` | \`api_handler\` Lambda | Creates or updates a conversation record in DynamoDB (upsert) |
 
 ## Lambda Functions
 
-### API Handler Lambda (api_handler)
+### API Handler Lambda (\`api_handler\`)
 
-This function acts as the primary orchestrator between the user, the Bedrock Agent, and the conversation state.
+The primary orchestrator between the client, the Bedrock Agent, and conversation state.
 
-#### Responsibilities
+**Responsibilities:**
+- **Agent Invocation:** Calls \`bedrock_agent_runtime.invoke_agent\` with \`AGENT_ID\`, \`AGENT_ALIAS_ID\`, \`sessionId\`, and \`inputText\`
+- **Response Streaming:** Iterates through completion chunks from the Bedrock stream and concatenates them into a full answer
+- **State Persistence:** Reads and writes conversation records to the DynamoDB \`conversations\` table
 
-- **Agent Invocation:** Calls bedrock_agent_runtime.invoke_agent using AGENT_ID and AGENT_ALIAS_ID  
-- **State Persistence:** Queries and updates the conversations DynamoDB table  
-- **Response Streaming:** Aggregates chunks from the Bedrock completion stream into a full answer  
+**Configuration:** Runtime \`python3.12\`; boto3 agent runtime client configured with a 120-second read timeout to accommodate multi-step agentic reasoning cycles.
 
-#### Configuration
+### Database Connection Lambda (\`db_conn\`)
 
-- **Runtime:** python3.12  
+The executor for the \`postgress_query\` action group. Receives a generated SQL string from the agent and runs it against the PostgreSQL instance.
 
-### Database Connection Lambda (db_conn)
+**Responsibilities:**
+- **SQL Execution:** Uses \`psycopg2\` to execute queries against \`public.metrics\`
+- **Query Preprocessing:** Automatically casts date literals to \`timestamp\` for PostgreSQL compatibility
+- **Formatting:** Returns results as a JSON array in the format required by Bedrock action groups
+- **Error Handling:** Catches exceptions and returns a structured error response so the agent can surface a message to the user rather than failing silently
 
-This function is the "executor" for the Bedrock Agent's Action Group. It receives generated SQL and runs it against the PostgreSQL instance.
+### Alert Lambda (\`send_alert\`)
 
-#### Responsibilities
+The executor for the \`send_alert\` action group. Constructs and dispatches email alerts via Amazon SES.
 
-- **SQL Execution:** Uses psycopg2 to execute queries against the metrics table  
-- **Query Preprocessing:** Automatically casts date literals to timestamp to ensure PostgreSQL compatibility  
-- **Formatting:** Returns results in the specific JSON format required by Bedrock Action Groups  
+**Responsibilities:**
+- **Email Dispatch:** Calls \`ses_client.send_email\` using recipient, subject, and body fields passed by the agent
+- **Confirmation:** Returns a dispatch confirmation to the agent, which relays it to the user
 
 ## Data and Storage
 
-### PostgreSQL EC2 Instance
+### PostgreSQL 16 on EC2
 
-A t4g.small Spot instance running PostgreSQL 16  
+A \`t4g.small\` Spot Instance running PostgreSQL 16 in \`eu-west-1\`. The database stores monitoring metrics in a single long-format table following an Entity-Attribute-Value design.
 
-- **Database:** postgres  
-- **User:** lambda_reader with read-only permissions  
-- **Table:** public.metrics containing long-format time-series data  
+| Column | Description |
+|--------|-------------|
+| \`host_name\` | Server producing the measurement |
+| \`env\` | Environment (production, dev, staging) |
+| \`app_name\` | Application associated with the host |
+| \`app_id\` | Deterministic application identifier |
+| \`assignment_group\` | Team responsible for the monitored system |
+| \`tool_name\` | Monitoring tool generating the check (Nagios, Dynatrace, etc.) |
+| \`metric_group\` | Category (CPU, memory, network) |
+| \`metric_name\` | Specific metric (e.g. \`cpu_load\`, \`memory_usage\`) |
+| \`status\` | Health flag: healthy, warning, critical, unhealthy |
+| \`value\` | Numerical measurement |
+
+- **Database:** \`postgres\`
+- **User:** \`lambda_reader\` - read-only permissions enforced at the database level
+- **Data simulation:** \`metrics_collector.py\` runs via cron every 5 minutes, writing 156 rows per execution
+- **Data trimming:** \`metrics_trimmer.py\` runs every 15 minutes, enforcing a 10 GB ceiling by pruning the oldest rows and running \`VACUUM\`
 
 ### DynamoDB Conversations Table
 
-Stores session history to maintain context across multiple turns and to ensure compliance.
+Stores session history to maintain conversational context across turns and to provide a fully auditable, timestamped record for post-incident retrospectives.
 
-- **Table Name:** conversations  
-- **Schema:** Partition Key userId (String), Sort Key sessionId (String)  
-
+- **Table Name:** \`conversations\`
+- **Partition Key:** \`userId\` (String) - the Cognito \`sub\` claim
+- **Sort Key:** \`sessionId\` (String) - a combination of the JWT and a UUID generated at conversation start
+- **Attributes:** \`title\` (first 50 characters of the opening message), \`messages\` (full message array), \`lastUpdated\` (ISO 8601 timestamp)
+- Conversations are sorted by \`lastUpdated\` descending so the most recent session appears first in the sidebar
     `,
   },
   {
-    id: "AI Agent and Bedrock Integration",
+    id: "ai-agent",
     title: "AI Agent and Bedrock Integration",
     content: `
 # AI Agent and Bedrock Integration
 
-Powered by AWS Bedrock and built on Claude Sonnet 4.5, Simply ask questions in plain English, the agent understands your intent through natural language processing, then converts your query into precise SQL using its built-in schema awareness to navigate the database structure. 
-
-It executes the query, interprets the results, and delivers a clear, concise summary, all through dynamic function calling that orchestrates each step automatically. No SQL knowledge required; just ask, and get answers.
+The intelligence layer of the system is an Amazon Bedrock Agent configured with Anthropic Claude Sonnet 4.5. The agent accepts natural language queries, follows a structured chain-of-thought reasoning pipeline, generates and executes PostgreSQL, interprets the results, and returns a plain-language summary. If the result set contains unhealthy metrics, the agent conditionally triggers an email alert via a second action group - but only after the user explicitly confirms.
 
 ## Key Components
 
-| Component     | Identifier / Value                                   | Role                                                         |
-|--------------|------------------------------------------------------|--------------------------------------------------------------|
-| Agent Name   | sql-data-agent                                       | The logical Bedrock Agent resource                           |
-| Model ID     | eu.anthropic.claude-sonnet-4-5-20250929-v1:0         | The Claude 4.5 Sonnet model used for reasoning               |
-| Agent ID     | IZMAAETI1S                                           | Unique identifier for the agent resource                     |
-| Alias ID     | 2U0EGTAGKO                                           | Identifier for the specific agent version/alias              |
-| Action Group | postgress_query_group                                | Toolset allowing the agent to call the DB Lambda             |
+| Component | Identifier / Value | Role |
+|-----------|-------------------|------|
+| Agent Name | \`sql-data-agent\` | The logical Bedrock Agent resource |
+| Model ID | \`eu.anthropic.claude-sonnet-4-5-20250929-v1:0\` | Claude Sonnet 4.5 used for reasoning |
+| Agent ID | \`IZMAAETI1S\` | Unique identifier for the agent resource |
+| Alias ID | \`2U0EGTAGKO\` | Identifier for the specific agent version/alias |
+| Action Group 1 | \`postgress_query_group\` | Allows the agent to execute SQL via the DB Lambda |
+| Action Group 2 | \`send_alert\` | Allows the agent to dispatch email alerts via the SES Lambda |
+
+## System Prompt: prompt.txt
+
+The agent's behaviour is entirely governed by its system prompt (\`prompt.txt\`). This file is the most critical component of the system and is structured using XML-tagged sections to give the model clearly delimited, unambiguous instructions. Claude's official documentation notes that XML tags help parse complex prompts that mix instructions, context, examples, and variable inputs.
+
+The prompt is composed of the following sections:
+
+### \`<table_schema>\`
+Defines the exact structure of the \`public.metrics\` table, including all valid column names and the long-format (key-value) storage pattern. A critical instruction here explicitly prohibits the agent from selecting metrics as columns and enforces the mandatory column set on every query.
+
+### \`<chain_of_thought>\`
+A 7-step ordered reasoning process the agent must follow before taking any action. The explicit step-by-step instruction set constrains the model's degrees of freedom, improving accuracy and predictability. Steps 6 and 7 integrate the alerting workflow directly into the reasoning chain.
+
+### \`<query_rules>\`
+Enforces strict SQL generation patterns:
+- Always use the fully qualified table name \`public.metrics\`
+- Always include the mandatory column set: \`time, host_name, app_name, assignment_group, metric_name, value, status\`
+- Use \`ILIKE\` for case-insensitive matching on \`host_name\`, \`app_name\`, and \`tool_name\`
+- Use \`NOW()\` for all relative time calculations (prevents the model from hallucinating dates from its training data)
+- Always include \`ORDER BY time DESC\`
+- Only \`SELECT\` is permitted - \`INSERT\`, \`UPDATE\`, \`DELETE\`, \`DROP\`, and \`TRUNCATE\` are explicitly prohibited
+
+### \`<alert_rules>\`
+Defines the conditional alerting workflow. After summarising results, if any rows have \`status = 'unhealthy'\`, the agent offers to send an email alert and phrases the offer naturally. It must not invoke the \`send_metric_alert\` action without explicit user confirmation. If the user declines, the conversation continues normally without any alert being sent.
+
+### \`<metric_dictionary>\`
+Maps natural language metric names to their exact database strings:
+
+\`\`\`
+[infra/Host Metrics]
+- CPU: cpu_load
+- Memory: memory_usage
+- Disk: disk_space_used, disk_capacity
+- Uptime: uptime
+- Network: net_throughput, net_latency
+
+[app Metrics]
+- Response Time: response_time
+- Error Rate: error_rate
+- Status: http_ping, dynatrace_synth
+- Users: current_user_count
+- Apdex: apdex
+\`\`\`
+
+### \`<context_rules>\`
+Instructs the agent to resolve follow-up queries using context from prior turns. If the user refers to "the same host" or omits a filter that was present in the previous exchange, the agent infers it and proceeds without requesting clarification. If a follow-up question requires data not yet retrieved, the agent re-issues the query rather than relying on previously returned values.
+
+### \`<examples>\`
+Provides concrete input-to-SQL mappings and a defined refusal pattern for off-topic requests, grounding the agent's behaviour in demonstrated patterns.
+
+## Action Group Implementation
+
+Two action groups are registered against the agent, each defined by an OpenAPI 3.0 schema and backed by a dedicated Lambda function.
+
+### \`postgress_query_group\`
+Exposes a single \`POST\` operation that accepts a SQL query string and returns the result set as a JSON array. The \`db_conn\` Lambda executes the query against the PostgreSQL instance over the private VPC network using \`psycopg2\`.
+
+### \`send_alert\`
+Exposes a single \`POST\` operation accepting a recipient email address, subject line, and message body. The alert Lambda dispatches the email via Amazon SES and returns a dispatch confirmation to the agent. The sender identity is a verified SES address. The system currently operates in SES sandbox mode, which restricts outbound email to verified recipient addresses. In a production deployment, sandbox restrictions would be lifted.
+
+## Tool Orchestration Flow
+
+When the agent determines a database query is required:
+
+1. **Reasoning:** Claude Sonnet 4.5 analyses intent and constructs SQL based on the \`<table_schema>\` and \`<metric_dictionary>\` in its instructions
+2. **Action Trigger:** The agent identifies the \`postgress_query\` function in the \`postgress_query_group\` action group
+3. **Lambda Invocation:** Bedrock invokes the \`bedrock-sql-db-conn\` Lambda function
+4. **Execution:** The Lambda executes the SQL and returns the raw result set
+5. **Observation:** The agent receives the data, checks for \`status = 'unhealthy'\` rows, summarises in plain language, and conditionally offers to send an alert
+
+If the agent receives an empty or insufficient result set, it is permitted to re-invoke the query tool with a broader query before surfacing a response to the user, mitigating the risk of hallucinated values.
 
 ## API Handler Orchestration
 
-The api_handler Lambda (defined in lambdas/index.py) serves as the gateway between the client and the Bedrock Agent.
+The \`api_handler\` Lambda initialises the Bedrock Agent Runtime client with specific timeout configurations to accommodate multi-step reasoning cycles:
 
-### Agent Runtime Initialization
-
-The Lambda initializes the bedrock-agent-runtime client with specific timeout configurations to accommodate complex SQL generation and execution cycles.
-
-
-\`\`\`
+\`\`\`python
 bedrock_agent_runtime = boto3.client(
     "bedrock-agent-runtime",
     region_name="eu-west-1",
@@ -188,26 +293,128 @@ bedrock_agent_runtime = boto3.client(
 
 ## Session and Context Management
 
-The system uses sessionId to maintain conversation state. When a user sends a prompt to the /ask endpoint, the handle_ask function extracts the session_id from the request body and passes it to the agent.
+The \`session_id\` passed on every \`/ask\` request is generated client-side as a combination of the Cognito \`userId\` and a UUID, ensuring it is globally unique and stable for the lifetime of a conversation. Sending a new \`session_id\` starts a fresh conversation with no memory of prior exchanges. The Bedrock Agent Runtime uses this identifier to maintain multi-turn context natively.
 
-- **Invoke Agent:** The invoke_agent method is called with the agentId, agentAliasId, sessionId, and the user's inputText  
-- **Response Streaming:** The agent returns a response stream. The Lambda iterates through the completion chunks, decoding the bytes into a final string answer  
-- **Persistence:** Conversation metadata (userId, sessionId, messages) is persisted in the conversations DynamoDB table  
+After every successful agent response, the full conversation (including both user and assistant messages) is persisted to DynamoDB via a \`POST /conversations\` call, making the complete history available for post-incident review and accessible across devices.
+    `,
+  },
+  {
+    id: "frontend",
+    title: "Frontend",
+    content: `
+# Frontend
 
-## Action Group: postgress_query_group
+The frontend is a modern Single Page Application (SPA) built with React 19, Vite 7, and Tailwind CSS v4. It is hosted on Amazon S3 and distributed via CloudFront. AWS Amplify handles client-side authentication against the Cognito User Pool.
 
-The Agent does not query the database directly. Instead, it uses an Action Group named postgress_query_group. This creates a bridge between the "Natural Language Space" of the LLM and the "Code Entity Space" of the database connector.
+## Application Structure
 
-### Tool Orchestration Flow
+The application is structured around a central \`App.jsx\` orchestrator that manages global state and coordinates data flow between the AWS-backed API and all child layout components. The UI is partitioned into four primary functional components - Header, SidePanel, Conversation, and Footer - each in a separate layout file to keep the codebase maintainable.
 
-When the Agent determines a database query is required, it follows this flow:
+## State Management
 
-1. **Reasoning:** Claude 4.5 Sonnet generates a SQL statement based on the table_schema provided in its instructions  
-2. **Action Trigger:** The Agent identifies the postgress_query function within the postgress_query_group action group  
-3. **Lambda Invocation:** Bedrock invokes the bedrock-sql-db-conn Lambda function  
-4. **Execution:** The db_conn.py script executes the SQL and returns the raw data  
-5. **Observation:** The Agent receives the data, interprets it, and formulates a natural language response for the user  
+\`App.jsx\` uses React's \`useState\` and \`useRef\` hooks to manage the conversation lifecycle. State variables track the active chat, current session ID, historical conversations, loading state, user identity, and sidebar visibility.
 
+The application manages conversations through three phases:
+
+**Initialization:** On mount, the component fetches the user identity from the AWS Amplify session, generates a new session ID (a combination of \`userId\` and a UUID), and calls \`GET /conversations\` to populate the sidebar with existing history.
+
+**Interaction (handleSend):** The user's message is immediately added to the \`messages\` state as an optimistic update. A \`POST /ask\` request is sent containing the prompt and the \`currentSessionId\`. On a successful response, the assistant's reply is appended to the message history.
+
+**Persistence (saveConversation):** After every successful agent response, the conversation is persisted to DynamoDB via \`POST /conversations\`. If it is the first message in a session, the first 50 characters of the user's input are used as the conversation title.
+
+## Layout Components
+
+**Header:** Displays the authenticated \`userId\` (derived from the Cognito JWT \`sub\` claim), provides a light/dark theme toggle, and exposes a logout button that returns the user to the splash screen.
+
+**SidePanel:** A collapsible sidebar that renders the user's full conversation history. Conversations are not stored locally - the list is fetched from DynamoDB on each load and held in React component state, making history consistent across devices and browser sessions. Includes a \`+ New\` button that resets chat state and generates a fresh session ID.
+
+**Conversation:** The main interaction surface. Renders the \`messages\` array with role-based styling distinguishing user and assistant messages. Uses a \`useRef\` hook (\`bottomRef\`) to keep the view anchored to the latest message as the conversation grows. Supports both button-click and Enter-key submission.
+
+**Footer:** A stateless presentational component displaying contact information and a last-updated timestamp. In a production deployment this would be extended to include relevant compliance information.
+
+## Authentication
+
+Authentication is implemented with Amazon Cognito and AWS Amplify. On sign-in, Cognito issues an ID token, access token, and refresh token. The ID token is the primary token used by the system; it contains the \`sub\` claim used as the stable \`userId\` across all requests. Amplify's \`Auth.currentSession()\` method retrieves the active session on mount. The JWT is included as a \`Bearer\` token in the \`Authorization\` header of every API request. API Gateway validates the token against the Cognito User Pool before the Lambda handler is invoked.
+    `,
+  },
+  {
+    id: "alerting",
+    title: "Email Alerting",
+    content: `
+# Email Alerting
+
+Email alerting is a conditional workflow triggered when the Bedrock Agent detects unhealthy metrics in a query result. The implementation spans three components: the agent's \`<alert_rules>\` prompt instructions, the \`send_alert\` action group, and the underlying SES Lambda.
+
+## Alert Flow
+
+1. The agent executes a database query via the \`postgress_query\` action group
+2. The agent inspects the result set for rows where \`status = 'unhealthy'\`
+3. If unhealthy rows are found, the agent summarises the findings in plain language and offers to send an email alert, phrasing the offer naturally (e.g. *"I can see that http_ping on WebSrvAHost was unhealthy at 19:10. Would you like me to send an email alert for this?"*)
+4. The user is in full control - they can confirm a full alert, a partial alert (for specific hosts only), or decline entirely
+5. If confirmed, the agent invokes the \`send_metric_alert\` function, passing the relevant unhealthy rows directly from its context - no additional database query is required
+6. The alert Lambda constructs and dispatches the email via Amazon SES and returns a confirmation
+7. The agent relays the confirmation to the user
+8. If the user declines, the conversation continues normally and no alert is sent
+
+This design ensures that alerting is always a deliberate, user-directed action. The agent will never dispatch an email autonomously.
+
+## Required Alert Fields
+
+Each alert object passed to the \`send_alert\` action group must include:
+
+| Field | Source |
+|-------|--------|
+| \`host_name\` | Present in every query result (mandatory column set) |
+| \`app_name\` | Present in every query result |
+| \`assignment_group\` | Present in every query result |
+| \`metric_name\` | Present in every query result |
+| \`status\` | Present in every query result |
+| \`value\` | Present in every query result |
+| \`time\` | Present in every query result |
+
+All fields are guaranteed to be available in the agent's context because the mandatory \`SELECT\` column set enforced by \`<query_rules>\` always includes them.
+
+## SES Configuration
+
+Amazon SES was provisioned with a verified sender identity via Terraform. The system currently operates in SES sandbox mode, which restricts outbound email to verified recipient addresses. In a production deployment, SES would be moved out of sandbox mode to allow alerts to be dispatched to any relevant operational email address.
+    `,
+  },
+  {
+    id: "data-pipeline",
+    title: "Data Pipeline",
+    content: `
+# Data Pipeline
+
+Monitoring data is continuously simulated by a Python script running on the EC2 instance, providing a realistic time-series dataset for the agent to query.
+
+## Metrics Collector (\`metrics_collector.py\`)
+
+The script runs via cron every 5 minutes and writes 156 rows per execution to \`public.metrics\`. Each row represents a single metric reading from a simulated monitoring tool at a point in time. The script generates values across infrastructure and application metrics, including \`cpu_load\`, \`memory_usage\`, \`disk_space_used\`, \`net_latency\`, \`response_time\`, \`error_rate\`, \`http_ping\`, and others defined in the agent's metric dictionary.
+
+## Metrics Trimmer (\`metrics_trimmer.py\`)
+
+A companion trimmer script runs every 15 minutes and enforces a 10 GB ceiling on the \`public.metrics\` table. It deletes the oldest rows in batches and runs \`VACUUM\` to reclaim storage, preventing unbounded growth on the EC2 instance's allocated EBS volume.
+
+## Simulated Infrastructure
+
+The simulation covers a representative set of hosts and applications across multiple assignment groups, mimicking the kind of multi-team monitoring environment the system is designed to serve. Hosts are named consistently (e.g. \`InfraSrv1Host\`, \`WebSrvAHost\`, \`WinAppCHost\`) and tied to \`app_name\` and \`assignment_group\` values that reflect distinct team ownership boundaries.
+
+## Metric Dictionary
+
+The agent's \`<metric_dictionary>\` maps natural language terms to the exact \`metric_name\` strings stored in the database:
+
+| Category | metric_name values |
+|----------|-------------------|
+| CPU | \`cpu_load\` |
+| Memory | \`memory_usage\` |
+| Disk | \`disk_space_used\`, \`disk_capacity\` |
+| Uptime | \`uptime\` |
+| Network | \`net_throughput\`, \`net_latency\` |
+| Response Time | \`response_time\` |
+| Error Rate | \`error_rate\` |
+| Status Checks | \`http_ping\`, \`dynatrace_synth\` |
+| Active Users | \`current_user_count\` |
+| Satisfaction | \`apdex\` |
     `,
   },
   {
@@ -216,9 +423,9 @@ When the Agent determines a database query is required, it follows this flow:
     content: `
 # Deployment
 
-## Infrastructure
+## Infrastructure as Code
 
-Deployed via Terraform using the AWS provider \`~> 6.0\`. All infrastructure is defined as code.
+All infrastructure is defined in Terraform using the AWS provider \`~> 6.0\` and deployed to \`eu-west-1\`. The Terraform configuration covers API Gateway, Lambda functions, Bedrock Agent and action groups, DynamoDB, Cognito, SES, EC2, VPC and all Interface Endpoints, IAM roles and policies, S3, and CloudFront.
 
 \`\`\`bash
 terraform init
@@ -226,6 +433,16 @@ terraform plan
 terraform apply
 \`\`\`
 
+The Bedrock Agent itself (including its action group OpenAPI schemas and the \`prompt.txt\` system prompt) is provisioned and versioned via Terraform, ensuring the agent configuration remains reproducible and consistent with the surrounding infrastructure.
+
+## Performance Observations
+
+End-to-end response time (user submission to agent response appearing in the frontend) was observed at approximately 6–12 seconds under normal conditions. The two primary contributors are Lambda cold starts (approximately 100ms to 1 second on the first request in a session) and the Bedrock Agent's multi-step reasoning phase, which accounts for the largest share of response time. Because the system uses Claude Sonnet 4.5 via Amazon Bedrock, availability and response latency are directly tied to Anthropic's infrastructure.
+
+## Repositories
+
+- **Backend (Lambda + Terraform):** [github.com/JeffHalley/backend_infra_FYP_20102427](https://github.com/JeffHalley/backend_infra_FYP_20102427)
+- **API definition:** [FYP_openAPI_Final.yaml](https://github.com/JeffHalley/backend_infra_FYP_20102427/blob/main/FYP_openAPI_Final.yaml)
     `,
   },
 ];
