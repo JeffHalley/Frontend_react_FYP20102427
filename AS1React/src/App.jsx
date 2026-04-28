@@ -18,7 +18,10 @@ Amplify.configure({
   Auth: {
     Cognito: {
       userPoolId: 'eu-west-1_InEmJzi7l',
-      userPoolClientId: '5drb7ldq84uohj7bsqf7jap0u4'
+      userPoolClientId: '5drb7ldq84uohj7bsqf7jap0u4',
+      loginWith: {
+        email: true
+      }
     }
   }
 });
