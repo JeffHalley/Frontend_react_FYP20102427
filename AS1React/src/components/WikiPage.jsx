@@ -623,7 +623,7 @@ function inline(text) {
     if (part.startsWith("`") && part.endsWith("`"))
       return <code key={i} style={s.inlineCode}>{part.slice(1, -1)}</code>;
     if (part.startsWith("**") && part.endsWith("**"))
-      return <strong key={i} style={{ color: "#d0ddef" }}>{part.slice(2, -2)}</strong>;
+      return <strong key={i} style={{ color: "var(--color-text-primary)", fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
     return part;
   });
 }
@@ -642,9 +642,13 @@ function MdTable({ lines }) {
         </thead>
         <tbody>
           {body.map((row, ri) => (
-            <tr key={ri} style={{ background: ri % 2 ? "#111624" : "#0d1120" }}>
+            <tr key={ri} style={{ background: ri % 2 ? "var(--color-surface-800)" : "var(--color-surface-900)" }}>
               {row.map((cell, ci) => (
-                <td key={ci} style={{ ...s.td, fontWeight: ci === 0 ? 600 : 400, color: ci === 0 ? "#c0d0e8" : "#7a8aaa" }}>
+                <td key={ci} style={{
+                  ...s.td,
+                  fontWeight: ci === 0 ? 600 : 400,
+                  color: ci === 0 ? "var(--color-text-primary)" : "var(--color-text-secondary)",
+                }}>
                   {inline(cell)}
                 </td>
               ))}
