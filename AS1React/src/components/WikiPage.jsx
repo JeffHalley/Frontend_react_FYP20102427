@@ -439,10 +439,6 @@ The Bedrock Agent itself (including its action group OpenAPI schemas and the \`p
 
 End-to-end response time (user submission to agent response appearing in the frontend) was observed at approximately 6–12 seconds under normal conditions. The two primary contributors are Lambda cold starts (approximately 100ms to 1 second on the first request in a session) and the Bedrock Agent's multi-step reasoning phase, which accounts for the largest share of response time. Because the system uses Claude Sonnet 4.5 via Amazon Bedrock, availability and response latency are directly tied to Anthropic's infrastructure.
 
-## Repositories
-
-- **Backend (Lambda + Terraform):** [github.com/JeffHalley/backend_infra_FYP_20102427](https://github.com/JeffHalley/backend_infra_FYP_20102427)
-- **API definition:** [FYP_openAPI_Final.yaml](https://github.com/JeffHalley/backend_infra_FYP_20102427/blob/main/FYP_openAPI_Final.yaml)
     `,
   },
 ];
