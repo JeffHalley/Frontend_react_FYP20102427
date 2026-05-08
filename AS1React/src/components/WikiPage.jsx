@@ -49,6 +49,11 @@ Conversation history is persisted in DynamoDB for post-incident review and audit
     `,
   },
   {
+    id: "poster",
+    title: "Poster",
+    content: "",
+  },
+  {
     id: "architecture",
     title: "Architecture",
     content: `
@@ -504,7 +509,18 @@ export default function WikiPage({ onBack }) {
         ...s.main,
         transition: "all 0.3s ease"
       }}>
-        <Markdown content={page.content} inject={activeId === "overview" ? { afterH1: <ProjectLinks /> } : undefined} />
+        {activeId === "poster" ? (
+          <div style={s.posterWrap}>
+            <h1 style={s.h1}>Poster</h1>
+            <img
+              src="/JeffHalley20102427Final.png"
+              alt="Project Poster"
+              style={s.posterImg}
+            />
+          </div>
+        ) : (
+          <Markdown content={page.content} inject={activeId === "overview" ? { afterH1: <ProjectLinks /> } : undefined} />
+        )}
         <div style={{ height: 60 }} />
       </main>
     </div>
@@ -762,6 +778,8 @@ const s = {
   th: { textAlign: "left", padding: "8px 14px", background: "var(--color-surface-800)", color: "var(--color-brand-90)", fontWeight: 700, letterSpacing: "0.07em", fontSize: 11, borderBottom: "1px solid var(--color-surface-border)", whiteSpace: "nowrap" },
   td: { padding: "9px 14px", borderBottom: "1px solid var(--color-surface-border)", lineHeight: 1.5, color: "var(--color-text-primary)", opacity: 0.9 },
   inlineLink: { color: "var(--color-brand-90)", textDecoration: "underline", textDecorationColor: "var(--color-brand-80)", cursor: "pointer" },
+  posterWrap: { display: "flex", flexDirection: "column", alignItems: "center" },
+  posterImg: { width: "100%", maxWidth: 1400, height: "auto", imageRendering: "high-quality", borderRadius: 6, border: "1px solid var(--color-surface-border)" },
   linksPanel: { display: "flex", gap: 20, flexWrap: "wrap", margin: "0 0 32px", padding: "20px 0", borderBottom: "1px solid var(--color-surface-border)" },
   linkGroup: { display: "flex", flexDirection: "column", gap: 8, minWidth: 200, flex: "1 1 200px" },
   linkGroupLabel: { fontSize: 10, fontWeight: 700, color: "var(--color-brand-90)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 },
