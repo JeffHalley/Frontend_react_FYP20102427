@@ -508,7 +508,7 @@ export default function WikiPage({ onBack }) {
         ...s.main,
         transition: "all 0.3s ease"
       }}>
-        <Markdown content={page.content} />
+        <Markdown content={page.content} inject={activeId === "overview" ? { afterH1: <ProjectLinks /> } : undefined} />
         <div style={{ height: 60 }} />
       </main>
     </div>
@@ -516,11 +516,75 @@ export default function WikiPage({ onBack }) {
 }
 
 
-function Markdown({ content }) {
+function ProjectLinks() {
+  const groups = [
+    {
+      label: "GitHub Repositories",
+      links: [
+        { title: "Backend Infrastructure & Terraform", url: "https://github.com/JeffHalley/backend_infra_FYP_20102427" },
+        { title: "Frontend React Application", url: "https://github.com/JeffHalley/Frontend_react_FYP20102427" },
+      ],
+    },
+    {
+      label: "Live Demo",
+      links: [
+        { title: "Live Website (CloudFront)", url: "https://d3212o90xjuosc.cloudfront.net/" },
+        { title: "Video Demo (YouTube)", url: "https://youtu.be/XDoaBmDZibE" },
+      ],
+    },
+    {
+      label: "Project Board",
+      links: [
+        { title: "Miro Planning Board", url: "https://miro.com/app/board/uXjVJxxMUWc=/?share_link_id=797035811662" },
+      ],
+    },
+    {
+      label: "Project Report",
+      links: [
+        { title: "Project Report PDF", url: "https://1drv.ms/b/c/9c6771a3915dcd09/IQBSrOpSa4J4S56OkiEkh8V1AfUz63Dtli55P5AdRAV2M7U" },
+      ],
+    },
+  ];
+
+  return (
+    <div style={s.linksPanel}>
+      {groups.map((group) => (
+        <div key={group.label} style={s.linkGroup}>
+          <div style={s.linkGroupLabel}>{group.label}</div>
+          <div style={s.linkList}>
+            {group.links.map((link) => (
+              <a
+                key={link.url}
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={s.linkCard}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = "var(--color-brand-80)";
+                  e.currentTarget.style.background = "var(--color-surface-800)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "var(--color-surface-border)";
+                  e.currentTarget.style.background = "var(--color-surface-900)";
+                }}
+              >
+                <span style={s.linkCardTitle}>{link.title}</span>
+                <span style={s.linkCardArrow}>↗</span>
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Markdown({ content, inject }) {
   const lines = content.trim().split("\n");
   const nodes = [];
   let i = 0;
   let k = 0;
+  let h1Done = false;
 
   while (i < lines.length) {
     const line = lines[i];
@@ -528,6 +592,10 @@ function Markdown({ content }) {
     // H1
     if (line.startsWith("# ")) {
       nodes.push(<h1 key={k++} style={s.h1}>{line.slice(2)}</h1>);
+      if (!h1Done && inject?.afterH1) {
+        nodes.push(<div key={k++}>{inject.afterH1}</div>);
+        h1Done = true;
+      }
       i++; continue;
     }
     // H2
@@ -617,13 +685,16 @@ function Markdown({ content }) {
   return <div style={s.pageBody}>{nodes}</div>;
 }
 
-// Inline: `code` and **bold**
+// Inline: `code`, **bold**, [text](url)
 function inline(text) {
-  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((part, i) => {
+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))/g).map((part, i) => {
     if (part.startsWith("`") && part.endsWith("`"))
       return <code key={i} style={s.inlineCode}>{part.slice(1, -1)}</code>;
     if (part.startsWith("**") && part.endsWith("**"))
       return <strong key={i} style={{ color: "var(--color-text-primary)", fontWeight: 700 }}>{part.slice(2, -2)}</strong>;
+    const linkMatch = part.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+    if (linkMatch)
+      return <a key={i} href={linkMatch[2]} target="_blank" rel="noopener noreferrer" style={s.inlineLink}>{linkMatch[1]}</a>;
     return part;
   });
 }
@@ -694,4 +765,12 @@ const s = {
   table: { width: "100%", maxWidth: 900, borderCollapse: "collapse", fontSize: 12 },
   th: { textAlign: "left", padding: "8px 14px", background: "var(--color-surface-800)", color: "var(--color-brand-90)", fontWeight: 700, letterSpacing: "0.07em", fontSize: 11, borderBottom: "1px solid var(--color-surface-border)", whiteSpace: "nowrap" },
   td: { padding: "9px 14px", borderBottom: "1px solid var(--color-surface-border)", lineHeight: 1.5, color: "var(--color-text-primary)", opacity: 0.9 },
+  inlineLink: { color: "var(--color-brand-90)", textDecoration: "underline", textDecorationColor: "var(--color-brand-80)", cursor: "pointer" },
+  linksPanel: { display: "flex", gap: 20, flexWrap: "wrap", margin: "0 0 32px", padding: "20px 0", borderBottom: "1px solid var(--color-surface-border)" },
+  linkGroup: { display: "flex", flexDirection: "column", gap: 8, minWidth: 200, flex: "1 1 200px" },
+  linkGroupLabel: { fontSize: 10, fontWeight: 700, color: "var(--color-brand-90)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 2 },
+  linkList: { display: "flex", flexDirection: "column", gap: 6 },
+  linkCard: { display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--color-surface-900)", border: "1px solid var(--color-surface-border)", borderRadius: 6, padding: "9px 14px", textDecoration: "none", cursor: "pointer", transition: "all 0.15s ease", gap: 12 },
+  linkCardTitle: { fontSize: 12, color: "var(--color-text-primary)", fontWeight: 500 },
+  linkCardArrow: { fontSize: 13, color: "var(--color-brand-90)", flexShrink: 0 },
 };
